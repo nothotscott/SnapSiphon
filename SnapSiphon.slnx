@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="SnapSiphon.Desktop/SnapSiphon.Desktop.csproj" />
+  <Project Path="SnapSiphon/SnapSiphon.csproj" />
+</Solution>

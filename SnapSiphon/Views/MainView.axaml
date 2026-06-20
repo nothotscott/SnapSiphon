@@ -1,0 +1,115 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:SnapSiphon.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="640" d:DesignHeight="520"
+             x:Class="SnapSiphon.Views.MainView"
+             x:DataType="vm:MainViewModel">
+  <Design.DataContext>
+    <vm:MainViewModel />
+  </Design.DataContext>
+
+  <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="32" Spacing="20" MaxWidth="600" HorizontalAlignment="Center">
+
+      <!-- Header -->
+      <StackPanel Spacing="4">
+        <TextBlock Text="SnapSiphon" FontSize="30" FontWeight="Bold" />
+        <TextBlock Text="Save and organize your Snapchat memories"
+                   Opacity="0.6" FontSize="14" />
+      </StackPanel>
+
+      <!-- Folder selection (Idle only) -->
+      <Border IsVisible="{Binding IsIdle}"
+              Padding="20" CornerRadius="8"
+              BorderThickness="1" BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+              Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+        <StackPanel Spacing="16">
+
+          <TextBlock Text="Snapchat Data Folder" FontWeight="SemiBold" />
+          <TextBlock TextWrapping="Wrap" Opacity="0.7" FontSize="13">
+            Select the folder containing your extracted Snapchat export (the folder with
+            "mydata~…" subfolders). ZIP files in that folder will be extracted automatically.
+          </TextBlock>
+
+          <Grid ColumnDefinitions="*,8,Auto">
+            <TextBox Grid.Column="0"
+                     Text="{Binding InputFolderPath}"
+                     IsReadOnly="True"
+                     PlaceholderText="No folder selected…" />
+            <Button Grid.Column="2"
+                    Content="Browse…"
+                    Command="{Binding BrowseInputFolderCommand}" />
+          </Grid>
+
+          <Expander Header="Options">
+            <Grid ColumnDefinitions="Auto,12,*" RowDefinitions="Auto,10,Auto"
+                  Margin="0,8,0,0">
+              <TextBlock Grid.Row="0" Grid.Column="0" Text="Output folder name"
+                         VerticalAlignment="Center" />
+              <TextBox Grid.Row="0" Grid.Column="2" Text="{Binding OutputFolderName}" />
+
+              <TextBlock Grid.Row="2" Grid.Column="0" Text="File prefix"
+                         VerticalAlignment="Center" />
+              <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding FilePrefix}" />
+            </Grid>
+          </Expander>
+
+          <Button Content="Start Processing →"
+                  Command="{Binding StartProcessingCommand}"
+                  Classes="accent"
+                  HorizontalAlignment="Right" />
+
+        </StackPanel>
+      </Border>
+
+      <!-- Status / Progress (Processing or Done) -->
+      <Border IsVisible="{Binding !IsIdle}"
+              Padding="20" CornerRadius="8"
+              BorderThickness="1" BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+              Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+        <StackPanel Spacing="14">
+
+          <TextBlock Text="{Binding StatusMessage}"
+                     FontWeight="SemiBold"
+                     TextWrapping="Wrap" />
+
+          <!-- Progress bar (Processing state) -->
+          <StackPanel IsVisible="{Binding IsProcessing}" Spacing="8">
+            <ProgressBar Value="{Binding ProgressFraction}"
+                         Minimum="0" Maximum="1"
+                         Height="6" CornerRadius="3" />
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Grid.Column="0"
+                         Text="{Binding CurrentFile}"
+                         FontSize="12" Opacity="0.6"
+                         TextTrimming="CharacterEllipsis" />
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
+                <TextBlock Text="{Binding ProcessedFiles}" FontSize="12" Opacity="0.6" />
+                <TextBlock Text=" / " FontSize="12" Opacity="0.6" />
+                <TextBlock Text="{Binding TotalFiles}" FontSize="12" Opacity="0.6" />
+              </StackPanel>
+            </Grid>
+            <Button Content="Cancel"
+                    Command="{Binding CancelProcessingCommand}"
+                    HorizontalAlignment="Right" />
+          </StackPanel>
+
+          <!-- Done state -->
+          <StackPanel IsVisible="{Binding IsDone}"
+                      Orientation="Horizontal" Spacing="8"
+                      HorizontalAlignment="Right">
+            <Button Content="Open Output Folder"
+                    Command="{Binding OpenOutputFolderCommand}" />
+            <Button Content="Process Another"
+                    Command="{Binding StartOverCommand}"
+                    Classes="accent" />
+          </StackPanel>
+
+        </StackPanel>
+      </Border>
+
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>
