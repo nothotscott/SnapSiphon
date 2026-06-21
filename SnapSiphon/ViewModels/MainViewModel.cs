@@ -12,13 +12,13 @@ public partial class MainViewModel : ViewModelBase
 {
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(StartProcessingCommand))]
-    private string _inputFolderPath = "";
+    private string _inputFolderPath;
 
     [ObservableProperty]
-    private string _outputFolderName = "output";
+    private string _outputFolderName;
 
     [ObservableProperty]
-    private string _filePrefix = "Snapchat-";
+    private string _filePrefix;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsIdle), nameof(IsProcessing), nameof(IsDone))]
@@ -41,6 +41,12 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private string _currentFile = "";
 
+    [ObservableProperty]
+    private bool _isPaused;
+
+    [ObservableProperty]
+    private bool _isDryRun;
+
     public bool IsIdle => State == AppState.Idle;
     public bool IsProcessing => State == AppState.Processing;
     public bool IsDone => State == AppState.Done;
@@ -50,6 +56,14 @@ public partial class MainViewModel : ViewModelBase
 
     private CancellationTokenSource? _cts;
     private readonly MediaProcessingService _processor = new();
+
+    public MainViewModel()
+    {
+        var settings = SettingsService.Load();
+        _inputFolderPath = settings.LastInputPath;
+        _outputFolderName = settings.OutputFolderName;
+        _filePrefix = settings.FilePrefix;
+    }
 
     [RelayCommand]
     private async Task BrowseInputFolder()
@@ -69,10 +83,13 @@ public partial class MainViewModel : ViewModelBase
     private async Task StartProcessing()
     {
         State = AppState.Processing;
+        IsPaused = false;
         ProcessedFiles = 0;
         TotalFiles = 0;
         ErrorCount = 0;
         CurrentFile = "";
+
+        SaveSettings();
 
         _cts = new CancellationTokenSource();
 
@@ -97,14 +114,17 @@ public partial class MainViewModel : ViewModelBase
                 {
                     InputRootPath = InputFolderPath,
                     OutputFolderName = OutputFolderName,
-                    FilePrefix = FilePrefix
+                    FilePrefix = FilePrefix,
+                    DryRun = IsDryRun
                 },
                 progressHandler,
+                WaitWhilePausedAsync,
                 _cts.Token);
 
+            var verb = IsDryRun ? "simulated" : "saved";
             StatusMessage = ErrorCount > 0
-                ? $"Done — {ProcessedFiles:N0} files saved, {ErrorCount} errors."
-                : $"Done — {ProcessedFiles:N0} files saved successfully.";
+                ? $"Done — {ProcessedFiles:N0} files {verb}, {ErrorCount} errors."
+                : $"Done — {ProcessedFiles:N0} files {verb} successfully.";
         }
         catch (OperationCanceledException)
         {
@@ -117,10 +137,25 @@ public partial class MainViewModel : ViewModelBase
         finally
         {
             State = AppState.Done;
+            IsPaused = false;
             _cts?.Dispose();
             _cts = null;
             StartProcessingCommand.NotifyCanExecuteChanged();
         }
+    }
+
+    [RelayCommand]
+    private void PauseProcessing()
+    {
+        IsPaused = true;
+        StatusMessage = "Paused — check the output folder and resume when ready.";
+    }
+
+    [RelayCommand]
+    private void ResumeProcessing()
+    {
+        IsPaused = false;
+        StatusMessage = "Resuming…";
     }
 
     [RelayCommand]
@@ -143,6 +178,23 @@ public partial class MainViewModel : ViewModelBase
         TotalFiles = 0;
         ErrorCount = 0;
         CurrentFile = "";
+        IsPaused = false;
         StartProcessingCommand.NotifyCanExecuteChanged();
+    }
+
+    private async Task WaitWhilePausedAsync(CancellationToken ct)
+    {
+        while (IsPaused)
+            await Task.Delay(200, ct);
+    }
+
+    private void SaveSettings()
+    {
+        SettingsService.Save(new AppSettings
+        {
+            OutputFolderName = OutputFolderName,
+            FilePrefix = FilePrefix,
+            LastInputPath = InputFolderPath
+        });
     }
 }

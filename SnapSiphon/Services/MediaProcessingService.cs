@@ -7,6 +7,7 @@ public sealed class MediaProcessingService
     public async Task ProcessAsync(
         ProcessingOptions options,
         IProgress<ProcessingProgress> progress,
+        Func<CancellationToken, Task>? pauseCheck = null,
         CancellationToken ct = default)
     {
         Report(progress, "Checking for ZIP archives…");
@@ -60,31 +61,41 @@ public sealed class MediaProcessingService
         var outputRoot = Path.Combine(options.InputRootPath, options.OutputFolderName);
         int total = work.Count, completed = 0, errors = 0;
 
+        var dryRun = options.DryRun;
+        Report(progress, dryRun
+            ? $"Simulating {total:N0} files…"
+            : $"Processing {total:N0} files…");
+
         foreach (var (file, entry, subDir) in work)
         {
+            if (pauseCheck is not null)
+                await pauseCheck(ct);
             ct.ThrowIfCancellationRequested();
 
-            var outputDir = Path.Combine(outputRoot, subDir);
-            Directory.CreateDirectory(outputDir);
-
             var outputName = BuildOutputName(file, options.FilePrefix);
-            var outputPath = ResolveUniqueOutputPath(outputDir, outputName);
 
-            try
+            if (!dryRun)
             {
-                System.IO.File.Copy(file.SourcePath, outputPath, overwrite: false);
+                var outputDir = Path.Combine(outputRoot, subDir);
+                Directory.CreateDirectory(outputDir);
 
-                if (entry?.Latitude is not null && entry.Longitude is not null)
-                    MetadataWriterService.TryWriteGps(outputPath, entry.Latitude.Value, entry.Longitude.Value);
+                var outputPath = ResolveUniqueOutputPath(outputDir, outputName);
+                try
+                {
+                    System.IO.File.Copy(file.SourcePath, outputPath, overwrite: false);
 
-                var timestamp = entry?.DateUtc ?? file.CreationTimeUtc;
-                MetadataWriterService.ApplyTimestamp(outputPath, timestamp);
-            }
-            catch
-            {
-                errors++;
-                if (System.IO.File.Exists(outputPath))
-                    try { System.IO.File.Delete(outputPath); } catch { /* best effort */ }
+                    if (entry?.Latitude is not null && entry.Longitude is not null)
+                        MetadataWriterService.TryWriteGps(outputPath, entry.Latitude.Value, entry.Longitude.Value);
+
+                    var timestamp = entry?.DateUtc ?? file.CreationTimeUtc;
+                    MetadataWriterService.ApplyTimestamp(outputPath, timestamp);
+                }
+                catch
+                {
+                    errors++;
+                    if (System.IO.File.Exists(outputPath))
+                        try { System.IO.File.Delete(outputPath); } catch { /* best effort */ }
+                }
             }
 
             completed++;
@@ -97,7 +108,13 @@ public sealed class MediaProcessingService
             });
 
             if (completed % 20 == 0)
+            {
+                if (dryRun)
+                {
+                    await Task.Delay(1, ct);
+                }
                 await Task.Yield();
+            }
         }
     }
 

@@ -67,8 +67,13 @@ All platform entry points reference `SnapSiphon/` and add nothing beyond bootstr
 2. **`MemoriesJsonParser`** — deserializes `memories_history.json` into `List<MemoryEntry>` (Date UTC, MediaType, Latitude, Longitude)
 3. **`FileDiscoveryService`** — walks all `memories/`, `chat_media/`, `shared_story/` subfolders; returns `DiscoveredFile` lists. Skips `-overlay` files.
 4. **`MemoryMatchingService`** — correlates memory files to JSON entries by grouping on UTC date (from filename prefix) and pairing by sorted order within each day
-5. **`MetadataWriterService`** — sets `LastWriteTime` and writes GPS: JPEG/PNG via `TagLib.Image.File.ImageTag`, MP4 via `AppleTag.SetText(©xyz key, ISO 6709 string)`
-6. **`MediaProcessingService`** — orchestrates all steps; copies files to `{inputRoot}/{outputFolderName}/{memories|chat_media|shared_story}/`
+5. **`DeduplicationService`** — groups files by size, then SHA-256 hashes only size-matched candidates; keeps the oldest copy of each duplicate set
+6. **`MetadataWriterService`** — sets `CreationTime`/`LastWriteTime` and writes GPS: JPEG/PNG via `TagLib.Image.File.ImageTag`, MP4 via `AppleTag.SetText(©xyz key, ISO 6709 string)`
+7. **`MediaProcessingService`** — orchestrates all steps; copies files to `{inputRoot}/{outputFolderName}/{memories|chat_media|shared_story}/`. Supports dry-run mode (skips all writes) and a pause callback for chunked processing.
+
+## Settings Persistence
+
+`SettingsService` stores user preferences (output folder name, file prefix, last input path) as JSON in the platform-appropriate local app data directory (`%LOCALAPPDATA%\SnapSiphon\` on Windows, `~/Library/Application Support/SnapSiphon/` on macOS). Settings are loaded in the `MainViewModel` constructor and saved before each processing run.
 
 ## Snapchat Data Format
 
